@@ -1,5 +1,7 @@
 {
   "name": "Iboolimi Furniture Catalog",
   "description": "High-end furniture catalog for Uzbekistan with on-demand camera access for admins.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [
+    "camera"
+  ]
 }
