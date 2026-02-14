@@ -1,5 +1,5 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Product, AdminUser, UserRole, Language, Category } from '../types';
 
 interface AdminPanelProps {
@@ -18,11 +18,12 @@ interface AdminPanelProps {
 const AdminPanel: React.FC<AdminPanelProps> = ({ 
   products, setProducts, categories, setCategories, admins, setAdmins, currentUser, language, t, onLogout 
 }) => {
-  const [activeTab, setActiveTab] = useState<'products' | 'categories' | 'team' | 'settings' | 'my-profile'>('products');
+  const [activeTab, setActiveTab] = useState<'products' | 'categories' | 'team' | 'settings'>('products');
   const [editingProduct, setEditingProduct] = useState<Partial<Product> | null>(null);
   const [editingCategory, setEditingCategory] = useState<Partial<Category> | null>(null);
   const [newAdmin, setNewAdmin] = useState({ email: '', phone: '', chatId: '' });
   const [botToken, setBotToken] = useState(localStorage.getItem('iboolimi_bot_token') || '');
+  const [myChatId, setMyChatId] = useState(currentUser.telegramChatId || '');
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -37,7 +38,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
       alert("Заполните Название (RU), Цену и выберите Раздел");
       return;
     }
-
     const finalProduct = {
       id: p.id || Date.now().toString(),
       name: p.name || { [Language.RU]: '', [Language.UZ]: '' },
@@ -50,7 +50,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
       materialDetail: p.materialDetail || { [Language.RU]: '', [Language.UZ]: '' },
       inStock: p.inStock !== undefined ? p.inStock : true
     } as Product;
-
     if (p.id) {
       setProducts(products.map(item => item.id === p.id ? finalProduct : item));
     } else {
@@ -65,19 +64,27 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
       alert("Укажите название (RU) и обложку");
       return;
     }
-
     const finalCat = {
       id: c.id || `cat-${Date.now()}`,
       name: c.name || { [Language.RU]: '', [Language.UZ]: '' },
       cover: c.cover || ''
     } as Category;
-
     if (c.id) {
       setCategories(categories.map(item => item.id === c.id ? finalCat : item));
     } else {
       setCategories([...categories, finalCat]);
     }
     setEditingCategory(null);
+  };
+
+  const handleSaveSettings = () => {
+    localStorage.setItem('iboolimi_bot_token', botToken);
+    // Обновляем Chat ID текущего пользователя в общем списке админов
+    const updatedAdmins = admins.map(a => 
+      a.email === currentUser.email ? { ...a, telegramChatId: myChatId } : a
+    );
+    setAdmins(updatedAdmins);
+    alert("Настройки API сохранены. Убедитесь, что бот запущен!");
   };
 
   const openCamera = async () => {
@@ -118,7 +125,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
           <button onClick={() => setActiveTab('products')} className={`text-[10px] font-bold uppercase pb-1 border-b-2 ${activeTab === 'products' ? 'border-black' : 'border-transparent text-gray-400'}`}>{t.catalog}</button>
           <button onClick={() => setActiveTab('categories')} className={`text-[10px] font-bold uppercase pb-1 border-b-2 ${activeTab === 'categories' ? 'border-black' : 'border-transparent text-gray-400'}`}>{t.manageCategories}</button>
           <button onClick={() => setActiveTab('team')} className={`text-[10px] font-bold uppercase pb-1 border-b-2 ${activeTab === 'team' ? 'border-black' : 'border-transparent text-gray-400'}`}>{t.team}</button>
-          <button onClick={() => setActiveTab('settings')} className={`text-[10px] font-bold uppercase pb-1 border-b-2 ${activeTab === 'settings' ? 'border-black' : 'border-transparent text-gray-400'}`}>API</button>
+          <button onClick={() => setActiveTab('settings')} className={`text-[10px] font-bold uppercase pb-1 border-b-2 ${activeTab === 'settings' ? 'border-black' : 'border-transparent text-gray-400'}`}>API & Настройки</button>
           <button onClick={onLogout} className="text-[10px] font-bold uppercase text-red-400">Выйти</button>
         </div>
       </div>
@@ -198,7 +205,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                     <button onClick={openCamera} className="flex-1 border py-3 text-[10px] font-bold uppercase hover:bg-black hover:text-white transition-all">Фото с камеры</button>
                     <label className="flex-1 border py-3 text-[10px] font-bold uppercase text-center cursor-pointer hover:bg-black hover:text-white transition-all">
                       Файл <input type="file" multiple className="hidden" onChange={e => {
-                        // Fix for line 204: cast 'f' to 'Blob' to prevent 'unknown' type error.
                         Array.from(e.target.files || []).forEach(f => {
                           const reader = new FileReader();
                           reader.onload = ev => setEditingProduct(prev => ({...prev, images: [...(prev?.images || []), ev.target?.result as string]}) as any);
@@ -215,27 +221,53 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
         </div>
       )}
 
-      {editingCategory && (
-        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-lg rounded-xl p-8">
-            <h2 className="text-xl font-light mb-6">{t.editCategory}</h2>
-            <div className="space-y-6">
-              <input placeholder="Название (RU)" value={editingCategory.name?.[Language.RU] || ''} onChange={e => setEditingCategory(prev => ({...prev, name: {...(prev?.name || {[Language.RU]:'',[Language.UZ]:''}), [Language.RU]: e.target.value}} as any))} className="w-full border-b py-2 text-sm outline-none" />
-              <input placeholder="Название (UZ)" value={editingCategory.name?.[Language.UZ] || ''} onChange={e => setEditingCategory(prev => ({...prev, name: {...(prev?.name || {[Language.RU]:'',[Language.UZ]:''}), [Language.UZ]: e.target.value}} as any))} className="w-full border-b py-2 text-sm outline-none" />
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold uppercase text-gray-400">Обложка</label>
-                {editingCategory.cover && <img src={editingCategory.cover} className="w-full h-32 object-cover rounded mb-2" />}
+      {activeTab === 'team' && (
+        <div className="max-w-xl mx-auto space-y-8 animate-in fade-in">
+          <div className="bg-[#F9F9F7] p-8 border rounded-xl space-y-4">
+             <h3 className="text-xs font-bold uppercase">Добавить админа</h3>
+             <input placeholder="Email" value={newAdmin.email} onChange={e => setNewAdmin({...newAdmin, email: e.target.value})} className="w-full border-b py-2 bg-transparent outline-none" />
+             <input placeholder="Telegram Chat ID (числа)" value={newAdmin.chatId} onChange={e => setNewAdmin({...newAdmin, chatId: e.target.value.replace(/[^0-9-]/g, '')})} className="w-full border-b py-2 bg-transparent outline-none" />
+             <button onClick={() => { if(newAdmin.email && newAdmin.chatId) {setAdmins([...admins, { email: newAdmin.email, role: UserRole.ADMIN, telegramChatId: newAdmin.chatId }]); setNewAdmin({email:'',phone:'',chatId:''}); } }} className="w-full bg-black text-white py-3 text-[10px] font-bold uppercase">Добавить</button>
+          </div>
+          <div className="space-y-2">
+            {admins.map(a => (
+              <div key={a.email} className="bg-white p-4 border rounded flex justify-between items-center text-sm">
+                <div>
+                  <p>{a.email}</p>
+                  <p className="text-[10px] text-gray-400 uppercase tracking-tighter">ID: {a.telegramChatId || 'Не указан'}</p>
+                </div>
                 <div className="flex gap-2">
-                  <button onClick={openCamera} className="flex-1 border py-2 text-[9px] font-bold uppercase">Фото</button>
-                  <label className="flex-1 border py-2 text-[9px] font-bold uppercase text-center cursor-pointer">Файл <input type="file" className="hidden" onChange={e => {
-                    const reader = new FileReader();
-                    reader.onload = ev => setEditingCategory(prev => ({...prev, cover: ev.target?.result as string}) as any);
-                    if(e.target.files?.[0]) reader.readAsDataURL(e.target.files[0] as Blob);
-                  }} /></label>
+                  <span className="text-[10px] bg-gray-100 px-2 py-1 rounded">{a.role}</span>
+                  {a.email !== currentUser.email && (
+                    <button onClick={() => setAdmins(admins.filter(ad => ad.email !== a.email))} className="text-red-400 text-xs">Удалить</button>
+                  )}
                 </div>
               </div>
-              <button onClick={handleSaveCategory} className="w-full bg-black text-white py-4 text-[10px] font-bold uppercase rounded-lg">Сохранить раздел</button>
-              <button onClick={() => setEditingCategory(null)} className="w-full text-xs uppercase py-2">Отмена</button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'settings' && (
+        <div className="max-w-xl mx-auto space-y-8 animate-in fade-in">
+          <div className="bg-white p-12 border rounded-xl shadow-sm">
+            <h2 className="text-xl font-light mb-8">Настройки уведомлений</h2>
+            <div className="space-y-8">
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold uppercase text-gray-400 block">Telegram Bot Token</label>
+                <input type="password" value={botToken} onChange={e => setBotToken(e.target.value)} placeholder="Пример: 123456:ABC-DEF..." className="w-full border-b py-2 outline-none text-sm font-mono" />
+                <p className="text-[9px] text-gray-400">Получите у @BotFather</p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold uppercase text-gray-400 block">Ваш личный Chat ID</label>
+                <input type="text" value={myChatId} onChange={e => setMyChatId(e.target.value)} placeholder="Пример: 54321678" className="w-full border-b py-2 outline-none text-sm font-mono" />
+                <p className="text-[9px] text-gray-400">Узнайте свой ID у @userinfobot. Без этого ID бот не сможет отправить вам заказ лично.</p>
+              </div>
+
+              <button onClick={handleSaveSettings} className="w-full bg-black text-white py-4 text-[10px] font-bold uppercase rounded-lg hover:bg-gray-800 transition-colors">
+                Сохранить все настройки
+              </button>
             </div>
           </div>
         </div>
@@ -251,31 +283,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
             <button onClick={closeCamera} className="text-white text-xs uppercase">Отмена</button>
             <button onClick={capturePhoto} className="w-20 h-20 rounded-full border-4 border-white flex items-center justify-center"><div className="w-16 h-16 rounded-full bg-white active:scale-90 transition-transform" /></button>
             <div className="w-12" />
-          </div>
-        </div>
-      )}
-
-      {activeTab === 'team' && isSuperAdmin && (
-        <div className="max-w-xl mx-auto space-y-8 animate-in fade-in">
-          <div className="bg-[#F9F9F7] p-8 border rounded-xl space-y-4">
-             <h3 className="text-xs font-bold uppercase">Добавить админа</h3>
-             <input placeholder="Email" value={newAdmin.email} onChange={e => setNewAdmin({...newAdmin, email: e.target.value})} className="w-full border-b py-2 bg-transparent outline-none" />
-             <input placeholder="Telegram Chat ID (числа)" value={newAdmin.chatId} onChange={e => setNewAdmin({...newAdmin, chatId: e.target.value.replace(/[^0-9-]/g, '')})} className="w-full border-b py-2 bg-transparent outline-none" />
-             <button onClick={() => { if(newAdmin.email && newAdmin.chatId) {setAdmins([...admins, { email: newAdmin.email, role: UserRole.ADMIN, telegramChatId: newAdmin.chatId }]); setNewAdmin({email:'',phone:'',chatId:''}); } }} className="w-full bg-black text-white py-3 text-[10px] font-bold uppercase">Добавить</button>
-          </div>
-          <div className="space-y-2">
-            {admins.map(a => <div key={a.email} className="bg-white p-4 border rounded flex justify-between items-center text-sm">{a.email} <span className="text-xs text-gray-400">{a.role}</span></div>)}
-          </div>
-        </div>
-      )}
-
-      {activeTab === 'settings' && (
-        <div className="max-w-lg mx-auto bg-white p-12 border rounded-xl animate-in fade-in">
-          <h2 className="text-xl font-light mb-8">Настройки API</h2>
-          <div className="space-y-6">
-            <label className="text-[10px] font-bold uppercase text-gray-400 block">Telegram Bot Token</label>
-            <input type="password" value={botToken} onChange={e => setBotToken(e.target.value)} placeholder="Bot Token" className="w-full border-b py-2 outline-none" />
-            <button onClick={() => {localStorage.setItem('iboolimi_bot_token', botToken); alert("Сохранено");}} className="w-full bg-black text-white py-4 text-[10px] font-bold uppercase rounded-lg">Сохранить токен</button>
           </div>
         </div>
       )}

@@ -1,5 +1,6 @@
 
 import { Product, Language, AdminUser } from '../types';
+import { ADMIN_TELEGRAM_NUMBER } from '../constants';
 
 export interface OrderData {
   name: string;
@@ -7,59 +8,67 @@ export interface OrderData {
   email: string;
 }
 
-/**
- * Автоматически отправляет заказ всем администраторам через Telegram Bot.
- * Не требует действий от покупателя.
- */
-export const submitOrder = async (product: Product, customer: OrderData): Promise<boolean> => {
-  // Получаем настройки и список админов из хранилища
+const formatOrderMessage = (product: Product, customer: OrderData): string => {
+  return `
+📦 НОВЫЙ ЗАКАЗ: ASIA FURNITURE
+-------------------------
+🪑 Товар: ${product.name[Language.RU]}
+💰 Цена: ${product.price.toLocaleString()} сум
+📏 Габариты: ${product.dimensions}
+-------------------------
+👤 Клиент: ${customer.name}
+📞 Телефон: ${customer.phone}
+📧 Email: ${customer.email}
+-------------------------
+`.trim();
+};
+
+export const submitOrder = async (product: Product, customer: OrderData): Promise<{ success: boolean; fallbackUrl?: string; error?: string }> => {
   const botToken = localStorage.getItem('iboolimi_bot_token');
   const admins: AdminUser[] = JSON.parse(localStorage.getItem('iboolimi_admins') || '[]');
+  
+  const message = formatOrderMessage(product, customer);
+  const encodedMessage = encodeURIComponent(message);
 
-  if (!botToken) {
-    console.warn("Telegram Bot Token не настроен в панели управления.");
-    return false;
+  // Формат t.me/+номер является наиболее надежным для прямых ссылок на чат
+  const fallbackUrl = `https://t.me/${ADMIN_TELEGRAM_NUMBER}?text=${encodedMessage}`;
+
+  // Если токен есть, но нет админов с Chat ID
+  const recipients = admins.filter(admin => admin.telegramChatId && admin.telegramChatId.trim() !== '');
+  
+  if (botToken && botToken.trim() !== '' && recipients.length === 0) {
+    return { 
+      success: false, 
+      fallbackUrl, 
+      error: "API токен введен, но в списке 'Команда' ни у одного админа не указан Chat ID. Заказ открыт в обычном чате." 
+    };
   }
 
-  const message = `
-📦 *НОВЫЙ ЗАКАЗ: ASIA FURNITURE*
--------------------------
-🪑 *Товар:* ${product.name[Language.RU]}
-💰 *Цена:* ${product.price.toLocaleString()} сум
-📏 *Габариты:* ${product.dimensions}
--------------------------
-👤 *Клиент:* ${customer.name}
-📞 *Телефон:* ${customer.phone}
-📧 *Email:* ${customer.email}
--------------------------
-_Заказ отправлен автоматически_
-  `.trim();
-
-  const recipients = admins.filter(admin => admin.telegramChatId);
-
-  if (recipients.length === 0) {
-    console.warn("Нет администраторов с указанным Telegram Chat ID.");
-    return false;
+  if (!botToken || botToken.trim() === '' || recipients.length === 0) {
+    return { success: false, fallbackUrl };
   }
-
-  const sendPromises = recipients.map(admin => {
-    return fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: admin.telegramChatId,
-        text: message,
-        parse_mode: 'Markdown'
-      })
-    });
-  });
 
   try {
+    const sendPromises = recipients.map(admin => {
+      return fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: admin.telegramChatId,
+          text: message,
+        })
+      });
+    });
+
     const results = await Promise.all(sendPromises);
-    const someOk = results.some(res => res.ok);
-    return someOk;
+    const anySuccessful = results.some(res => res.ok);
+
+    return { 
+      success: anySuccessful, 
+      fallbackUrl: anySuccessful ? undefined : fallbackUrl 
+    };
   } catch (error) {
-    console.error("Ошибка при отправке в Telegram:", error);
-    return false;
+    console.error("Telegram API Error:", error);
+    return { success: false, fallbackUrl };
   }
 };

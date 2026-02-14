@@ -20,21 +20,35 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, allProducts, lan
 
   const similarProducts = useMemo(() => {
     return allProducts
-      .filter(p => p.id !== product.id && p.category === product.category)
+      .filter(p => p.id !== product.id && p.categoryId === product.categoryId)
       .slice(0, 3);
   }, [product, allProducts]);
 
   const handleOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsOrdering(true);
-    const success = await submitOrder(product, orderForm);
-    setIsOrdering(false);
-    if (success) {
+    
+    const result = await submitOrder(product, orderForm);
+    
+    if (result.success) {
       setOrderSuccess(true);
       setOrderForm({ name: '', phone: '', email: '' });
     } else {
-      alert("Ошибка при автоматической отправке в Telegram. Убедитесь, что бот настроен.");
+      if (result.error) {
+        // Если была ошибка настройки (например, нет Chat ID), предупреждаем админа
+        alert(result.error);
+      }
+      
+      if (result.fallbackUrl) {
+        // Открываем прямую ссылку
+        window.open(result.fallbackUrl, '_blank');
+        setOrderSuccess(true);
+      } else {
+        alert("Не удалось отправить заказ. Пожалуйста, свяжитесь с нами напрямую.");
+      }
     }
+    
+    setIsOrdering(false);
   };
 
   return (
@@ -97,20 +111,40 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, allProducts, lan
                 type="submit" disabled={isOrdering}
                 className="w-full bg-black text-white py-5 text-[10px] font-bold tracking-[0.3em] uppercase hover:bg-gray-800 transition-colors disabled:opacity-50 rounded-xl"
               >
-                {isOrdering ? 'ОТПРАВКА...' : 'ЗАКАЗАТЬ В ОДИН КЛИК'}
+                {isOrdering ? 'ОТПРАВКА...' : 'ЗАКАЗАТЬ ЧЕРЕЗ TELEGRAM'}
               </button>
+              <p className="text-[9px] text-gray-400 text-center uppercase tracking-tighter">
+                При нажатии откроется чат с менеджером
+              </p>
             </form>
           ) : (
             <div className="bg-[#F1F5E8] p-12 text-center space-y-6 animate-in slide-in-from-top-4 border border-[#8E9775]/20 rounded-3xl">
               <div className="w-12 h-12 bg-[#8E9775] text-white rounded-full flex items-center justify-center mx-auto mb-4">
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
               </div>
-              <p className="text-sm font-medium tracking-wide">ЗАКАЗ УСПЕШНО ОТПРАВЛЕН!</p>
-              <p className="text-[10px] uppercase tracking-widest text-[#8E9775]">Администраторы уведомлены в Telegram</p>
+              <p className="text-sm font-medium tracking-wide">ЗАКАЗ ПРИНЯТ!</p>
+              <p className="text-[10px] uppercase tracking-widest text-[#8E9775]">Мы свяжемся с вами в ближайшее время</p>
+              <button onClick={() => setOrderSuccess(false)} className="text-[10px] font-bold underline uppercase">Вернуться</button>
             </div>
           )}
         </div>
       </div>
+
+      {similarProducts.length > 0 && (
+        <div className="mt-20 border-t pt-20">
+          <h2 className="text-2xl font-light mb-12 tracking-tight">{t.relatedProducts}</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
+            {similarProducts.map(item => (
+              <div key={item.id} className="group cursor-pointer" onClick={() => onProductClick(item.id)}>
+                <div className="aspect-[3/4] overflow-hidden bg-[#F0F0EB] mb-4 rounded-sm">
+                  <img src={item.images[0]} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700" />
+                </div>
+                <h3 className="text-sm font-light">{item.name[language]}</h3>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
