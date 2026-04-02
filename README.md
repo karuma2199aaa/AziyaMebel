@@ -1,20 +1,24 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+🛋️ Aziya Mebel — Система управления заказами
+Профессиональный веб-интерфейс для мебельного бизнеса, разработанный для автоматизации процесса приема заказов и удобного взаимодействия с клиентами.
 
-# Run and deploy your AI Studio app
+Проект объединяет в себе современный витринный каталог и мощную бэкенд-логику для уведомлений в реальном времени.
 
-This contains everything you need to run your app locally.
+🚀 Основной функционал
+🛒 Интерактивный каталог: Удобный просмотр ассортимента «Aziya Mebel» с категориями (Гостиные, Детская мебель и др.).
 
-View your app in AI Studio: https://ai.studio/apps/db278910-6034-4331-bd99-d2a8fab2f397
+🤖 Интеграция с Telegram: Все новые заказы мгновенно отправляются в Telegram-бот. Это позволяет менеджеру оперативно реагировать на заявки прямо со смартфона.
 
-## Run Locally
+👥 Многопользовательский доступ (Admin Panel): * Возможность добавления нескольких администраторов.
 
-**Prerequisites:**  Node.js
+Разграничение прав доступа для управления контентом и заказами.
 
+⚡ Быстрый заказ: Минималистичная форма оформления заказа, адаптированная под мобильные устройства.
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+🛠️ Стек технологий
+Frontend: React / Next.js + TypeScript (высокая скорость работы и надежность).
+
+UI/UX: Tailwind CSS — чистый, современный дизайн с полной адаптивностью.
+
+Backend: Интеграция с Telegram Bot API для уведомлений.
+
+Deploy: Проект развернут на платформе Netlify с автоматическим обновлением из репозитория.
